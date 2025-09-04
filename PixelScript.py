@@ -1,10 +1,21 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, font
+import sys
+import os
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # create main window
 root = tk.Tk()
 root.title("PixelScript+")
 root.geometry("600x400")
+root.iconphoto(True, tk.PhotoImage(file=resource_path("Icon.png")))
 
 # text area
 current_font = font.Font(family="Arial", size=12)
@@ -37,6 +48,18 @@ def set_font_family(family):
 def set_font_size(size):
     current_font.config(size=size)
 
+def toggle_bold():
+    if current_font.actual()['weight'] == 'normal':
+        current_font.config(weight='bold')
+    else:
+        current_font.config(weight='normal')
+
+def toggle_italic():
+    if current_font.actual()['slant'] == 'roman':
+        current_font.config(slant='italic')
+    else:
+        current_font.config(slant='roman')
+
 # Calculator functions
 def open_calculator():
     calc_win = tk.Toplevel(root)
@@ -57,7 +80,7 @@ def open_calculator():
             result = eval(entry.get())
             entry.delete(0, tk.END)
             entry.insert(0, str(result))
-        except:
+        except Exception:
             entry.delete(0, tk.END)
             entry.insert(0, "Error")
 
@@ -113,6 +136,8 @@ for size in [10, 12, 14, 16, 18, 20, 24]:
 # add to edit menu
 edit_menu.add_cascade(label="Font Family", menu=font_menu)
 edit_menu.add_cascade(label="Font Size", menu=size_menu)
+edit_menu.add_command(label="Bold", command=toggle_bold)
+edit_menu.add_command(label="Italic", command=toggle_italic)
 menu_bar.add_cascade(label="Edit", menu=edit_menu)
 
 # maths menu
@@ -122,3 +147,4 @@ menu_bar.add_cascade(label="Maths", menu=maths_menu)
 
 root.config(menu=menu_bar)
 root.mainloop()
+
