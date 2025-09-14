@@ -5,7 +5,4 @@ PixelScript+ is a text editor designed to be as simple as possible. Providing al
 
 
 
-The project is very basic and still in beta, we are open to feature suggestions.
-Please also report any bugs and issues on this GitHub so we can fix them ASAP.
-
 *READ THE LICENSE BEFORE USE OF THE SOFTWARE!*
