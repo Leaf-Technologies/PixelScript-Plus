@@ -10,10 +10,12 @@ The current supported versions of PixelScript+ are:
 | 1.1     | :x:                |
 | 1.0     | :x:                |
 
-## Reporting a Vulnerability
+*(Version 1.2 and up always checks for new updates)*
 
-Use this section to tell people how to report a vulnerability.
+## Where to get an update
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+In version 1.2 or above you will get a popup showing a new update is avalible and will take you to the download page. If your using version 1.1 or bellow you will need to check the download page on the github to download the newest version.
+
+## Should I update my version
+
+Yes, you should update your version if you want to be secure and get new features. While older versions should be fine for use, its recommended to update when theres a new version.
