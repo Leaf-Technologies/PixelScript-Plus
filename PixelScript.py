@@ -170,7 +170,7 @@ def open_calendar():
     month_var = tk.IntVar(value=now.month)
     selected_day = tk.IntVar(value=now.day)
 
-    # Month and Year display (more visible)
+    # Month and Year display
     header_frame = tk.Frame(cal_win)
     header_frame.pack(pady=8)
     tk.Button(header_frame, text="<", width=2, command=lambda: prev_month()).pack(side="left")
