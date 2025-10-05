@@ -6,6 +6,8 @@ import requests
 import webbrowser
 import calendar
 from datetime import datetime
+import configparser
+import platform
 
 def resource_path(relative_path):
     try:
@@ -14,22 +16,47 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-# create main window
 root = tk.Tk()
+current_font = font.Font(root=root, family="Arial", size=12)
+
 root.title("PixelScript+")
 root.geometry("600x400")
 root.iconphoto(True, tk.PhotoImage(file=resource_path("Icon.png")))
 
-# text area
-current_font = font.Font(family="Arial", size=12)
-text_area = tk.Text(root, wrap="word", undo=True, font=current_font)
-text_area.pack(fill="both", expand=True)
+text_frame = tk.Frame(root)
+text_frame.pack(fill="both", expand=True)
 
-# GitHub update check
+line_counter = tk.Text(
+    text_frame, width=4, padx=4, takefocus=0, border=0,
+    background="#f0f0f0", foreground="gray", state="disabled", font=current_font
+)
+line_counter.pack(side="left", fill="y")
+
+text_area = tk.Text(text_frame, wrap="word", undo=True, font=current_font)
+text_area.pack(side="left", fill="both", expand=True)
+
+def update_line_counter(event=None):
+    text = text_area.get("1.0", "end-1c")
+    lines = text.count("\n") + 1
+    line_numbers = "\n".join(str(i) for i in range(1, lines + 1))
+    line_counter.config(state="normal")
+    line_counter.delete("1.0", "end")
+    line_counter.insert("1.0", line_numbers)
+    line_counter.config(state="disabled")
+
+text_area.bind("<KeyRelease>", update_line_counter)
+text_area.bind("<MouseWheel>", update_line_counter)
+text_area.bind("<ButtonRelease-1>", update_line_counter)
+text_area.bind("<<Change>>", update_line_counter)
+text_area.bind("<Configure>", update_line_counter)
+update_line_counter()
+
+# Github info
 OWNER = "Northy2410"
 REPO = "PixelScript-Plus"
-CURRENT_VERSION = "1.2"
+CURRENT_VERSION = "1.3"
 
+# update check
 def check_for_update():
     url = f"https://api.github.com/repos/northy2410/pixelscript-plus/releases/latest"
     try:
@@ -40,11 +67,12 @@ def check_for_update():
         if latest_version != CURRENT_VERSION:
             def open_release():
                 webbrowser.open(latest_release['html_url'])
+                update_win.destroy()  # Close the update window immediately
             update_win = tk.Toplevel(root)
             update_win.title("New Update Available")
             update_win.geometry("350x150")
             update_win.resizable(False, False)
-            update_win.attributes("-topmost", True)  # Always on top
+            update_win.attributes("-topmost", True)
             msg = tk.Label(
                 update_win,
                 text=f"New update available!\n\nLatest: {latest_version}\nYou have: {CURRENT_VERSION}",
@@ -58,40 +86,55 @@ def check_for_update():
                 font=("Arial", 11)
             )
             btn.pack(pady=5)
-            close_btn = tk.Button(
-                update_win,
-                text="Close",
-                command=update_win.destroy,
-                font=("Arial", 10)
-            )
-            close_btn.pack(pady=5)
-        # Do nothing if up to date
-    except Exception as e:
-        pass  # Silently ignore errors
-        
-if __name__ == "__main__":
-    check_for_update()
+    except Exception:
+        pass
 
-# file functions
+check_for_update()
+
+unsaved_changes = False
+
+def on_text_modified(event=None):
+    global unsaved_changes
+    unsaved_changes = text_area.edit_modified()
+    text_area.edit_modified(False)
+
+text_area.bind("<<Modified>>", on_text_modified)
+
+def on_closing():
+    if unsaved_changes:
+        if messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Do you want to exit without saving?"):
+            root.destroy()
+    else:
+        root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_closing)
+
 def new_file():
+    global unsaved_changes
     text_area.delete(1.0, tk.END)
+    unsaved_changes = False
+    update_line_counter()
 
 def open_file():
+    global unsaved_changes
     file = filedialog.askopenfilename(filetypes=[("Text Files", "*.txt")])
     if file:
-        with open(file, "r") as f:
+        with open(file, "r", encoding="utf-8") as f:
             text_area.delete(1.0, tk.END)
             text_area.insert(tk.END, f.read())
+        unsaved_changes = False
+        update_line_counter()
 
 def save_file():
+    global unsaved_changes
     file = filedialog.asksaveasfilename(defaultextension=".txt",
                                         filetypes=[("Text Files", "*.txt")])
     if file:
-        with open(file, "w") as f:
+        with open(file, "w", encoding="utf-8") as f:
             f.write(text_area.get(1.0, tk.END))
+        unsaved_changes = False
         messagebox.showinfo("Saved", "File saved successfully!")
 
-# font functions
 def set_font_family(family):
     current_font.config(family=family)
 
@@ -110,7 +153,7 @@ def toggle_italic():
     else:
         current_font.config(slant='roman')
 
-# Calculator functions
+# calculator
 def open_calculator():
     calc_win = tk.Toplevel(root)
     calc_win.title("Calculator")
@@ -134,7 +177,6 @@ def open_calculator():
             entry.delete(0, tk.END)
             entry.insert(0, "Error")
 
-    # Buttons layout
     buttons = [
         '7', '8', '9', '/',
         '4', '5', '6', '*',
@@ -154,11 +196,12 @@ def open_calculator():
             col_val = 0
             row_val += 1
 
-    # Clear button
     clear_btn = tk.Button(calc_win, text='C', width=5, height=2, font=('Arial', 14), command=clear)
     clear_btn.grid(row=row_val, column=0, padx=5, pady=5)
 
-# Calendar function
+    style_window(calc_win, current_theme)
+
+# calendar
 def open_calendar():
     cal_win = tk.Toplevel(root)
     cal_win.title("Calendar")
@@ -170,7 +213,6 @@ def open_calendar():
     month_var = tk.IntVar(value=now.month)
     selected_day = tk.IntVar(value=now.day)
 
-    # Month and Year display
     header_frame = tk.Frame(cal_win)
     header_frame.pack(pady=8)
     tk.Button(header_frame, text="<", width=2, command=lambda: prev_month()).pack(side="left")
@@ -190,17 +232,14 @@ def open_calendar():
     days_frame.pack(pady=10)
 
     def draw_calendar():
-        # Update month/year label
         month_year_label.config(text=f"{calendar.month_name[month_var.get()]} {year_var.get()}")
         for widget in days_frame.winfo_children():
             widget.destroy()
         year = year_var.get()
         month = month_var.get()
         cal = calendar.monthcalendar(year, month)
-        # Weekday headers
         for i, day in enumerate(['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']):
             tk.Label(days_frame, text=day, width=3, font=('Arial', 9, 'bold')).grid(row=0, column=i)
-        # Days
         for r, week in enumerate(cal, 1):
             for c, day in enumerate(week):
                 if day == 0:
@@ -236,55 +275,192 @@ def open_calendar():
             messagebox.showwarning("No Date", "Please select a day.")
         else:
             date_str = f"{y}-{m:02d}-{d:02d}"
-            # Insert date into the text area at the current cursor position
             text_area.insert(tk.INSERT, date_str)
             cal_win.destroy()
 
     tk.Button(cal_win, text="Insert Date", command=show_date).pack(pady=10)
 
     draw_calendar()
+    style_window(cal_win, current_theme)
 
-# menu bar
+def get_settings_path():
+    if platform.system() == "Windows":
+        appdata = os.getenv("APPDATA")
+        folder = os.path.join(appdata, "PixelScriptPlus")
+    else:
+        folder = os.path.expanduser("~/.pixelscriptplus")
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    return os.path.join(folder, "settings.ini")
+
+SETTINGS_FILE = get_settings_path()
+
+def load_settings():
+    config = configparser.ConfigParser()
+    if os.path.exists(SETTINGS_FILE):
+        config.read(SETTINGS_FILE)
+        return config.get("Appearance", "theme", fallback="light")
+    return "light"
+
+def save_settings(theme):
+    config = configparser.ConfigParser()
+    config["Appearance"] = {"theme": theme}
+    with open(SETTINGS_FILE, "w") as f:
+        config.write(f)
+
+def apply_theme(theme):
+    if theme == "dark":
+        root.config(bg="#23272e")
+        text_area.config(bg="#23272e", fg="#f8f8f2", insertbackground="#f8f8f2")
+        menu_bar.config(bg="#23272e", fg="#f8f8f2")
+        line_counter.config(bg="#23272e", fg="#5c6370")
+    else:
+        root.config(bg="SystemButtonFace")
+        text_area.config(bg="white", fg="black", insertbackground="black")
+        menu_bar.config(bg="SystemButtonFace", fg="black")
+        line_counter.config(bg="#f0f0f0", fg="gray")
+
+def style_window(win, theme):
+    if theme == "dark":
+        bg = "#23272e"
+        fg = "#f8f8f2"
+        entry_bg = "#2d323b"
+        entry_fg = "#f8f8f2"
+    else:
+        bg = "SystemButtonFace"
+        fg = "black"
+        entry_bg = "white"
+        entry_fg = "black"
+    win.config(bg=bg)
+    for widget in win.winfo_children():
+        cls = widget.__class__.__name__
+        if cls in ("Frame", "LabelFrame"):
+            widget.config(bg=bg)
+            for child in widget.winfo_children():
+                if child.__class__.__name__ == "Label":
+                    child.config(bg=bg, fg=fg)
+                elif child.__class__.__name__ == "Button":
+                    child.config(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
+                elif child.__class__.__name__ == "Entry":
+                    child.config(bg=entry_bg, fg=entry_fg, insertbackground=entry_fg)
+                elif child.__class__.__name__ == "Radiobutton":
+                    child.config(bg=bg, fg=fg, selectcolor=bg, activebackground=bg, activeforeground=fg)
+        elif cls == "Label":
+            widget.config(bg=bg, fg=fg)
+        elif cls == "Button":
+            widget.config(bg=bg, fg=fg, activebackground=bg, activeforeground=fg)
+        elif cls == "Entry":
+            widget.config(bg=entry_bg, fg=entry_fg, insertbackground=entry_fg)
+        elif cls == "Radiobutton":
+            widget.config(bg=bg, fg=fg, selectcolor=bg, activebackground=bg, activeforeground=fg)
+
+def open_about():
+    about_win = tk.Toplevel(root)
+    about_win.title("About PixelScript+")
+    about_win.geometry("500x400")  # Increased window size
+    about_win.resizable(False, False)
+
+    logo_img = tk.PhotoImage(file=resource_path("Icon.png"))
+    logo_label = tk.Label(about_win, image=logo_img, bg=about_win.cget("bg"))
+    logo_label.image = logo_img  # keep a reference
+    logo_label.pack(pady=15)
+
+    info_text = (
+        "PixelScript+\n"
+        f"Version: {CURRENT_VERSION}\n"
+        "A simple, extendable text editor.\n"
+        "© 2025 Northy2410"
+    )
+    info_label = tk.Label(about_win, text=info_text, font=("Arial", 14), justify="center")
+    info_label.pack(pady=8)
+
+    license_text = "License: MIT"
+    license_label = tk.Label(about_win, text=license_text, font=("Arial", 12))
+    license_label.pack(pady=15)
+
+    close_btn = tk.Button(about_win, text="Close", command=about_win.destroy)
+    close_btn.pack(pady=10)
+
+    style_window(about_win, current_theme)
+
+def open_settings():
+    settings_win = tk.Toplevel(root)
+    settings_win.title("Settings")
+    settings_win.geometry("350x260")
+    settings_win.resizable(False, False)
+
+    theme_var = tk.StringVar(value=current_theme)
+
+    main_frame = tk.Frame(settings_win, padx=20, pady=20)
+    main_frame.pack(fill="both", expand=True)
+
+    theme_label = tk.Label(main_frame, text="Theme:", font=("Arial", 12, "bold"))
+    theme_label.grid(row=0, column=0, sticky="w", pady=(0, 5))
+
+    theme_frame = tk.Frame(main_frame)
+    theme_frame.grid(row=1, column=0, sticky="w")
+    tk.Radiobutton(theme_frame, text="Light", variable=theme_var, value="light").pack(side="left", padx=5)
+    tk.Radiobutton(theme_frame, text="Dark", variable=theme_var, value="dark").pack(side="left", padx=5)
+
+    future_label = tk.Label(main_frame, text="(More settings coming soon...)", font=("Arial", 10, "italic"), fg="gray")
+    future_label.grid(row=2, column=0, sticky="w", pady=(20, 0))
+
+    def save_and_apply():
+        global current_theme
+        current_theme = theme_var.get()
+        save_settings(current_theme)
+        apply_theme(current_theme)
+        settings_win.destroy()
+
+    save_btn = tk.Button(main_frame, text="Save", command=save_and_apply, width=12)
+    save_btn.grid(row=3, column=0, pady=(15, 0), sticky="e")
+
+    about_btn = tk.Button(main_frame, text="About", command=open_about, width=12)
+    about_btn.grid(row=4, column=0, pady=(10, 0), sticky="e")
+
+    style_window(settings_win, current_theme)
+
 menu_bar = tk.Menu(root)
 
-# file menu
 file_menu = tk.Menu(menu_bar, tearoff=0)
 file_menu.add_command(label="New", command=new_file)
 file_menu.add_command(label="Open", command=open_file)
 file_menu.add_command(label="Save", command=save_file)
 file_menu.add_separator()
-file_menu.add_command(label="Exit", command=root.quit)
+file_menu.add_command(label="Exit", command=on_closing)
 menu_bar.add_cascade(label="File", menu=file_menu)
 
-# edit menu
 edit_menu = tk.Menu(menu_bar, tearoff=0)
 
-# font family
 font_menu = tk.Menu(edit_menu, tearoff=0)
 for family in ["Arial", "Courier", "Times New Roman", "Verdana"]:
     font_menu.add_command(label=family, command=lambda f=family: set_font_family(f))
 
-# font size
 size_menu = tk.Menu(edit_menu, tearoff=0)
 for size in [10, 12, 14, 16, 18, 20, 24]:
     size_menu.add_command(label=str(size), command=lambda s=size: set_font_size(s))
 
-# add to edit menu
 edit_menu.add_cascade(label="Font Family", menu=font_menu)
 edit_menu.add_cascade(label="Font Size", menu=size_menu)
 edit_menu.add_command(label="Bold", command=toggle_bold)
 edit_menu.add_command(label="Italic", command=toggle_italic)
 menu_bar.add_cascade(label="Edit", menu=edit_menu)
 
-# maths menu
 maths_menu = tk.Menu(menu_bar, tearoff=0)
 maths_menu.add_command(label="Calculator", command=open_calculator)
 menu_bar.add_cascade(label="Maths", menu=maths_menu)
 
-# utilities menu
 utilities_menu = tk.Menu(menu_bar, tearoff=0)
 utilities_menu.add_command(label="Calendar", command=open_calendar)
 menu_bar.add_cascade(label="Utilities", menu=utilities_menu)
 
+settings_menu = tk.Menu(menu_bar, tearoff=0)
+settings_menu.add_command(label="Settings", command=open_settings)
+menu_bar.add_cascade(label="Settings", menu=settings_menu)
+
 root.config(menu=menu_bar)
+
+current_theme = load_settings()
+apply_theme(current_theme)
+
 root.mainloop()
