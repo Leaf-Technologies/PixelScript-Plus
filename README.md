@@ -4,10 +4,11 @@ PixelScript+ is a text editor designed to be as simple as possible. Providing al
 >This software only works on Windows Computers, we are working as fast as we can to get this on MacOS and Linux so everyone can write notes efficiently
 
 >[!IMPORTANT]
->Version 1.2 of PixelScript+ may require some very easy bug fixing on your computer.
+>Version 1.2 and up of PixelScript+ may require some very easy bug fixing on your computer.
 >Check the release notes for more infomation.
 
-<img width="748" height="562" alt="image" src="https://github.com/user-attachments/assets/18cdbbda-fb71-43f7-b9d3-fcb1dd444c01" />
+<img width="750" height="563" alt="image" src="https://github.com/user-attachments/assets/bb2acdf8-dbcc-4bc5-b09c-4d91b05f7406" />
+
 
 
 
