@@ -54,29 +54,35 @@ update_line_counter()
 # Github info
 OWNER = "Northy2410"
 REPO = "PixelScript-Plus"
-CURRENT_VERSION = "1.3"
+CURRENT_VERSION = "1.3.1"
 
-# update check
-def check_for_update():
-    url = f"https://api.github.com/repos/northy2410/pixelscript-plus/releases/latest"
+# update check (manual invocation)
+def check_for_update(parent=None, silent=False):
+    """Check GitHub for the latest release.
+
+    Parameters:
+        parent: optional window to associate dialogs with.
+        silent (bool): if True suppress info/error dialogs when no update or failure.
+    """
+    url = "https://api.github.com/repos/northy2410/pixelscript-plus/releases/latest"
     try:
         response = requests.get(url, timeout=5)
         response.raise_for_status()
         latest_release = response.json()
-        latest_version = latest_release["tag_name"].lstrip("vV") 
-        if latest_version != CURRENT_VERSION:
+        latest_version = latest_release.get("tag_name", "").lstrip("vV")
+        if latest_version and latest_version != CURRENT_VERSION:
             def open_release():
                 webbrowser.open(latest_release['html_url'])
-                update_win.destroy()  # Close the update window immediately
-            update_win = tk.Toplevel(root)
-            update_win.title("New Update Available")
-            update_win.geometry("350x150")
+                update_win.destroy()
+            update_win = tk.Toplevel(root if parent is None else parent)
+            update_win.title("Update Available")
+            update_win.geometry("360x170")
             update_win.resizable(False, False)
             update_win.attributes("-topmost", True)
             msg = tk.Label(
                 update_win,
-                text=f"New update available!\n\nLatest: {latest_version}\nYou have: {CURRENT_VERSION}",
-                font=("Arial", 12)
+                text=f"A new version is available!\n\nLatest: {latest_version}\nCurrent: {CURRENT_VERSION}",
+                font=("Arial", 12), justify="center"
             )
             msg.pack(pady=15)
             btn = tk.Button(
@@ -86,10 +92,49 @@ def check_for_update():
                 font=("Arial", 11)
             )
             btn.pack(pady=5)
-    except Exception:
-        pass
-
-check_for_update()
+            style_window(update_win, current_theme)
+        else:
+            if not silent:
+                up_win = tk.Toplevel(root if parent is None else parent)
+                up_win.title("Up To Date")
+                up_win.geometry("360x140")
+                up_win.resizable(False, False)
+                up_win.attributes("-topmost", True)
+                msg = tk.Label(
+                    up_win,
+                    text=f"You're on the latest version (v{CURRENT_VERSION}).",
+                    font=("Arial", 12), justify="center"
+                )
+                msg.pack(pady=25)
+                btn = tk.Button(
+                    up_win,
+                    text="OK",
+                    command=up_win.destroy,
+                    font=("Arial", 11)
+                )
+                btn.pack(pady=5)
+                style_window(up_win, current_theme)
+    except Exception as e:
+        if not silent:
+            fail_win = tk.Toplevel(root if parent is None else parent)
+            fail_win.title("Update Check Failed")
+            fail_win.geometry("360x160")
+            fail_win.resizable(False, False)
+            fail_win.attributes("-topmost", True)
+            msg = tk.Label(
+                fail_win,
+                text=f"Could not check for updates.\n\n{e}",
+                font=("Arial", 12), justify="center"
+            )
+            msg.pack(pady=18)
+            btn = tk.Button(
+                fail_win,
+                text="OK",
+                command=fail_win.destroy,
+                font=("Arial", 11)
+            )
+            btn.pack(pady=5)
+            style_window(fail_win, current_theme)
 
 unsaved_changes = False
 
@@ -412,11 +457,15 @@ def open_settings():
         apply_theme(current_theme)
         settings_win.destroy()
 
-    save_btn = tk.Button(main_frame, text="Save", command=save_and_apply, width=12)
-    save_btn.grid(row=3, column=0, pady=(15, 0), sticky="e")
 
-    about_btn = tk.Button(main_frame, text="About", command=open_about, width=12)
-    about_btn.grid(row=4, column=0, pady=(10, 0), sticky="e")
+    save_btn = tk.Button(main_frame, text="Save", command=save_and_apply, width=16)
+    save_btn.grid(row=3, column=0, pady=(15, 0), sticky="w")
+
+    update_btn = tk.Button(main_frame, text="Check for Updates", command=lambda: check_for_update(parent=settings_win), width=16)
+    update_btn.grid(row=4, column=0, pady=(8, 0), sticky="w")
+
+    about_btn = tk.Button(main_frame, text="About", command=open_about, width=16)
+    about_btn.grid(row=5, column=0, pady=(10, 0), sticky="w")
 
     style_window(settings_win, current_theme)
 
