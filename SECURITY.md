@@ -1,5 +1,8 @@
 # Security Policy
 
+>[!CAUTION]
+>This software gets updates less frequently as of 12/10/2025. While the software should still be fine to use, its recommended to use an anti virus software to be sure (make sure the software can run if using anti virus).
+
 ## Supported Versions
 
 The current supported versions of PixelScript+ are:
@@ -8,7 +11,7 @@ The current supported versions of PixelScript+ are:
 | ------- | ------------------ |
 | 1.3.1   | :white_check_mark: |
 | 1.3     | :white_check_mark: |
-| 1.2     | :white_check_mark: |
+| 1.2     | :x:                |
 | 1.1     | :x:                |
 | 1.0     | :x:                |
 
