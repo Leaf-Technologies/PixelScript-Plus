@@ -54,7 +54,7 @@ update_line_counter()
 # Github info
 OWNER = "Northy2410"
 REPO = "PixelScript-Plus"
-CURRENT_VERSION = "1.3.1"
+CURRENT_VERSION = "1.3.2"
 
 # update check (manual invocation)
 def check_for_update(parent=None, silent=False):
@@ -414,12 +414,12 @@ def open_about():
         "PixelScript+\n"
         f"Version: {CURRENT_VERSION}\n"
         "A simple, extendable text editor.\n"
-        "© 2025 Northy2410"
+        "© 2025 Leaf Technologies."
     )
     info_label = tk.Label(about_win, text=info_text, font=("Arial", 14), justify="center")
     info_label.pack(pady=8)
 
-    license_text = "License: MIT"
+    license_text = "License: Proprietary"
     license_label = tk.Label(about_win, text=license_text, font=("Arial", 12))
     license_label.pack(pady=15)
 
