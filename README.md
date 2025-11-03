@@ -1,24 +1,42 @@
-# PixelScript+ 
+# PixelScript+
 
+<img width="128" height="128" alt="PixelScript+ Icon" src="https://github.com/user-attachments/assets/ade0fd3b-35c8-460e-a7fa-97ec9c34b043" />
 
-<img width="128" height="128" alt="Icon" src="https://github.com/user-attachments/assets/ade0fd3b-35c8-460e-a7fa-97ec9c34b043" />
+**PixelScript+** is a free, lightweight text editor built for simplicity and speed.  
+It gives you all the tools you need to write and edit plain text (`.txt`) files as efficiently and productively as possible.
 
-PixelScript+ is a free text editor designed to be as simple as possible. Providing all the tools needed so you can write text documents (.txt) as efficent and productive as possible.
+---
 
+## 🪶 Features
+- Clean and minimal design for distraction-free writing  
+- Fast and responsive — opens instantly  
+- Lightweight, with no unnecessary bloat  
+- Focused on text file editing and simplicity  
 
->[!NOTE]
->This software only works on Windows Computers, we are working as fast as we can to get this on MacOS and Linux so everyone can write notes efficiently
+---
 
->[!IMPORTANT]
->Version 1.2 and up of PixelScript+ may require some very easy bug fixing on your computer.
->Check the release notes for more infomation.
+## 💻 Compatibility
+> [!NOTE]  
+> PixelScript+ currently works **only on Windows**.  
+> macOS and Linux versions are in active development so everyone can enjoy a fast, simple writing experience.
 
-<img width="750" height="563" alt="image" src="https://github.com/user-attachments/assets/bb2acdf8-dbcc-4bc5-b09c-4d91b05f7406" />
+---
 
+## ⚠️ Important
+> [!IMPORTANT]  
+> Versions **1.2 and above** may require small, easy bug fixes on your computer.  
+> Check the [release notes](./releases) for more information.
 
+---
 
+<img width="750" height="563" alt="PixelScript+ Screenshot" src="https://github.com/user-attachments/assets/bb2acdf8-dbcc-4bc5-b09c-4d91b05f7406" />
 
+---
 
+## 📄 License
+Please **read the license** before using this software.
 
+---
 
-*READ THE LICENSE BEFORE USE OF THE SOFTWARE!*
+### Developed by [Leaf Technologies](https://github.com/Leaf-Technologies) 🌿  
+Simple. Fast. Reliable.
