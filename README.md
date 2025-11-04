@@ -38,5 +38,5 @@ Please **read the license** before using this software.
 
 ---
 
-### Developed by [Leaf Technologies](https://github.com/Leaf-Technologies) 🌿  
+### Developed by [Riley Northcote](https://github.com/Northy2410)  
 Simple. Fast. Reliable.
