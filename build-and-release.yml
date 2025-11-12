@@ -1,0 +1,112 @@
+name: Build and Draft Release for PixelScript-Plus
+
+on:
+  push:
+    paths:
+      - 'PixelScript.py'
+      - '.github/workflows/build-and-release.yml'
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  build-test-package:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install pyinstaller requests
+
+      # --- Test Step ---
+      - name: Test PixelScript.py Launch
+        run: |
+          python PixelScript.py &
+          sleep 10
+          # Optionally: confirm process launches, then kill it
+          pkill -f PixelScript.py || true
+
+      # --- Build Portable (No-Installer) ---
+      - name: Build Portable Executable/App
+        run: |
+          pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-No-Installer"
+
+      # --- Build Installer ---
+      - name: Build Installer
+        if: runner.os == 'Windows'
+        run: |
+          pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
+          # Copy your NSIS installer script (e.g. installer.nsi) and build installer
+          if exist installer.nsi (
+            makensis /DOUTPUTFILE="dist\PixelScript+-Installer.exe" installer.nsi
+            move /Y "dist\PixelScript+-Installer.exe" "dist\PixelScript+-Installer.exe"
+          )
+      - name: Build Installer (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
+          # Optionally create a .dmg:
+          hdiutil create -volname "PixelScriptPlus" -srcfolder dist/ -ov -format UDZO dist/PixelScript+-Installer.dmg
+      - name: Build Installer (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
+          # Example for AppImage or .deb packaging could go here
+
+      - name: Rename installer output (macOS)
+        if: runner.os == 'macOS'
+        run: mv dist/PixelScript+-Installer.dmg dist/PixelScript+-Installer
+
+      - name: List artifacts
+        run: ls dist/
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.os }}
+          path: |
+            dist/PixelScript+-No-Installer*
+            dist/PixelScript+-Installer*
+            # You may add additional output files here if needed
+
+  create-draft-release:
+    needs: build-test-package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Find release tag from PixelScript.py
+        run: |
+          # Extract release tag/version from PixelScript.py
+          VERSION=$(sed -nE "s/^.*CURRENT_VERSION\s*=\s*[\"']([^\"']+)[\"'].*$/\1/p" PixelScript.py)
+          if [[ -z "$VERSION" ]]; then
+            echo "Cannot find version tag in PixelScript.py; using workflow ref"
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+          echo "RELEASE_TAG=$VERSION" >> $GITHUB_ENV
+
+      - name: Create Draft Release and Upload Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "PixelScript-Plus ${{ env.RELEASE_TAG }}"
+          files: 'artifacts/**/*'
+
+      - name: Display Release Summary
+        run: |
+          echo "Draft release created for PixelScript-Plus version ${{ env.RELEASE_TAG }}"
