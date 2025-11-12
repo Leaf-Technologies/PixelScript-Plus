@@ -10,13 +10,65 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-version-and-build:
+    runs-on: ubuntu-latest
+    outputs:
+      version_is_newer: ${{ steps.compare_versions.outputs.version_is_newer }}
+      file_version: ${{ steps.get_file_version.outputs.file_version }}
+      release_version: ${{ steps.get_release_version.outputs.release_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get CURRENT_VERSION from PixelScript.py
+        id: get_file_version
+        run: |
+          FILE_VERSION=$(sed -nE "s/^.*CURRENT_VERSION\s*=\s*[\"']([^\"']+)[\"'].*$/\1/p" PixelScript.py)
+          echo "file_version=$FILE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get latest release version from GitHub API
+        id: get_release_version
+        run: |
+          DATA=$(curl -s https://api.github.com/repos/Northy2410/PixelScript-Plus/releases/latest)
+          TAG=$(echo "$DATA" | jq -r '.tag_name')
+          RELEASE_VERSION=$(echo "$TAG" | sed 's/^[vV]//')
+          echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compare file version with latest release
+        id: compare_versions
+        run: |
+          compare () {
+            v1=(${1//./ })
+            v2=(${2//./ })
+            for ((i=0;i<3;i++)); do
+              a=${v1[i]:-0}
+              b=${v2[i]:-0}
+              if ((10#$a > 10#$b)); then
+                echo "version_is_newer=true" >> $GITHUB_OUTPUT
+                exit 0
+              elif ((10#$a < 10#$b)); then
+                echo "version_is_newer=false" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            done
+            echo "version_is_newer=false" >> $GITHUB_OUTPUT
+          }
+          compare "${{ steps.get_file_version.outputs.file_version }}" "${{ steps.get_release_version.outputs.release_version }}"
+      # The next step causes building and packaging to run only if the file version is newer.
+      - name: Set build flag
+        run: |
+          echo "Build step allowed: ${{ steps.compare_versions.outputs.version_is_newer }}"
+        shell: bash
+
   build-test-package:
+    needs: check-version-and-build
+    if: needs.check-version-and-build.outputs.version_is_newer == 'true'
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
-      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_TAG: ${{ needs.check-version-and-build.outputs.file_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -34,7 +86,6 @@ jobs:
         run: |
           python PixelScript.py &
           sleep 10
-          # Optionally: confirm process launches, then kill it
           pkill -f PixelScript.py || true
 
       # --- Build Portable (No-Installer) ---
@@ -47,7 +98,6 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
-          # Copy your NSIS installer script (e.g. installer.nsi) and build installer
           if exist installer.nsi (
             makensis /DOUTPUTFILE="dist\PixelScript+-Installer.exe" installer.nsi
             move /Y "dist\PixelScript+-Installer.exe" "dist\PixelScript+-Installer.exe"
@@ -56,7 +106,6 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
-          # Optionally create a .dmg:
           hdiutil create -volname "PixelScriptPlus" -srcfolder dist/ -ov -format UDZO dist/PixelScript+-Installer.dmg
       - name: Build Installer (Linux)
         if: runner.os == 'Linux'
@@ -78,26 +127,18 @@ jobs:
           path: |
             dist/PixelScript+-No-Installer*
             dist/PixelScript+-Installer*
-            # You may add additional output files here if needed
 
   create-draft-release:
     needs: build-test-package
+    if: needs.build-test-package.result == 'success'
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.check-version-and-build.outputs.file_version }}
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
-      - name: Find release tag from PixelScript.py
-        run: |
-          # Extract release tag/version from PixelScript.py
-          VERSION=$(sed -nE "s/^.*CURRENT_VERSION\s*=\s*[\"']([^\"']+)[\"'].*$/\1/p" PixelScript.py)
-          if [[ -z "$VERSION" ]]; then
-            echo "Cannot find version tag in PixelScript.py; using workflow ref"
-            VERSION="${GITHUB_REF_NAME}"
-          fi
-          echo "RELEASE_TAG=$VERSION" >> $GITHUB_ENV
 
       - name: Create Draft Release and Upload Assets
         uses: softprops/action-gh-release@v1
