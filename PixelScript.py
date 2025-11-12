@@ -54,7 +54,7 @@ update_line_counter()
 # Github info
 OWNER = "Northy2410"
 REPO = "PixelScript-Plus"
-CURRENT_VERSION = "1.4"
+CURRENT_VERSION = "1.4.0"
 
 # update check (manual invocation)
 def check_for_update(parent=None, silent=False):
@@ -513,4 +513,5 @@ current_theme = load_settings()
 apply_theme(current_theme)
 
 root.mainloop()
+
 
