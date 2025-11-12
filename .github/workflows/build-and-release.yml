@@ -10,68 +10,73 @@ on:
   workflow_dispatch:
 
 jobs:
-  check-version-and-build:
+  check-version:
     runs-on: ubuntu-latest
     outputs:
-      version_is_newer: ${{ steps.compare_versions.outputs.version_is_newer }}
       file_version: ${{ steps.get_file_version.outputs.file_version }}
       release_version: ${{ steps.get_release_version.outputs.release_version }}
+      version_is_newer: ${{ steps.compare_versions.outputs.version_is_newer }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get CURRENT_VERSION from PixelScript.py
         id: get_file_version
         run: |
           FILE_VERSION=$(sed -nE "s/^.*CURRENT_VERSION\s*=\s*[\"']([^\"']+)[\"'].*$/\1/p" PixelScript.py)
+          if [[ -z "$FILE_VERSION" ]]; then
+            echo "CURRENT_VERSION not found in PixelScript.py!"
+            exit 1
+          fi
           echo "file_version=$FILE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Get latest release version from GitHub API
         id: get_release_version
         run: |
-          DATA=$(curl -s https://api.github.com/repos/Northy2410/PixelScript-Plus/releases/latest)
+          DATA=$(curl -sSf https://api.github.com/repos/Northy2410/PixelScript-Plus/releases/latest || true)
           TAG=$(echo "$DATA" | jq -r '.tag_name')
-          RELEASE_VERSION=$(echo "$TAG" | sed 's/^[vV]//')
+          if [[ "$TAG" == "null" || -z "$TAG" ]]; then
+            RELEASE_VERSION="0.0.0"
+          else
+            RELEASE_VERSION=$(echo "$TAG" | sed 's/^[vV]//')
+          fi
           echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Compare file version with latest release
         id: compare_versions
         run: |
-          compare () {
-            v1=(${1//./ })
-            v2=(${2//./ })
-            for ((i=0;i<3;i++)); do
-              a=${v1[i]:-0}
-              b=${v2[i]:-0}
-              if ((10#$a > 10#$b)); then
-                echo "version_is_newer=true" >> $GITHUB_OUTPUT
-                exit 0
-              elif ((10#$a < 10#$b)); then
-                echo "version_is_newer=false" >> $GITHUB_OUTPUT
-                exit 0
-              fi
-            done
+          # Compare (MAJOR.MINOR.PATCH) style numbers
+          A="${{ steps.get_file_version.outputs.file_version }}"
+          B="${{ steps.get_release_version.outputs.release_version }}"
+          pad() { [[ "$1" =~ \. ]] || echo "$1.0.0"; }
+          parse() { awk -F. '{ printf("%d%03d%03d\n", $1, ($2?$2:0), ($3?$3:0)); }' <(echo "$1"); }
+          VA=$(parse "$(pad "$A")")
+          VB=$(parse "$(pad "$B")")
+          echo "File version: $A = $VA, Release version: $B = $VB"
+          if [[ "$VA" -gt "$VB" ]]; then
+            echo "version_is_newer=true" >> $GITHUB_OUTPUT
+          else
             echo "version_is_newer=false" >> $GITHUB_OUTPUT
-          }
-          compare "${{ steps.get_file_version.outputs.file_version }}" "${{ steps.get_release_version.outputs.release_version }}"
-      # The next step causes building and packaging to run only if the file version is newer.
-      - name: Set build flag
+          fi
+
+      - name: Show version compare result
         run: |
-          echo "Build step allowed: ${{ steps.compare_versions.outputs.version_is_newer }}"
-        shell: bash
+          echo "Version in file: ${{ steps.get_file_version.outputs.file_version }}"
+          echo "Latest release version: ${{ steps.get_release_version.outputs.release_version }}"
+          echo "File version is newer: ${{ steps.compare_versions.outputs.version_is_newer }}"
 
   build-test-package:
-    needs: check-version-and-build
-    if: needs.check-version-and-build.outputs.version_is_newer == 'true'
+    needs: check-version
+    if: needs.check-version.outputs.version_is_newer == 'true'
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     env:
-      RELEASE_TAG: ${{ needs.check-version-and-build.outputs.file_version }}
+      RELEASE_TAG: ${{ needs.check-version.outputs.file_version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -102,11 +107,13 @@ jobs:
             makensis /DOUTPUTFILE="dist\PixelScript+-Installer.exe" installer.nsi
             move /Y "dist\PixelScript+-Installer.exe" "dist\PixelScript+-Installer.exe"
           )
+
       - name: Build Installer (macOS)
         if: runner.os == 'macOS'
         run: |
           pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
           hdiutil create -volname "PixelScriptPlus" -srcfolder dist/ -ov -format UDZO dist/PixelScript+-Installer.dmg
+
       - name: Build Installer (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -130,10 +137,10 @@ jobs:
 
   create-draft-release:
     needs: build-test-package
-    if: needs.build-test-package.result == 'success'
+    if: always()
     runs-on: ubuntu-latest
     env:
-      RELEASE_TAG: ${{ needs.check-version-and-build.outputs.file_version }}
+      RELEASE_TAG: ${{ needs.check-version.outputs.file_version }}
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -141,6 +148,7 @@ jobs:
           path: artifacts
 
       - name: Create Draft Release and Upload Assets
+        if: needs.build-test-package.result == 'success'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
@@ -149,5 +157,9 @@ jobs:
           files: 'artifacts/**/*'
 
       - name: Display Release Summary
+        if: needs.build-test-package.result == 'success'
         run: |
           echo "Draft release created for PixelScript-Plus version ${{ env.RELEASE_TAG }}"
+      - name: Output when skipped
+        if: needs.build-test-package.result != 'success'
+        run: echo "No new build was created since version is not newer than release."
