@@ -45,19 +45,30 @@ jobs:
       - name: Compare file version with latest release
         id: compare_versions
         run: |
-          # Compare (MAJOR.MINOR.PATCH) style numbers
-          A="${{ steps.get_file_version.outputs.file_version }}"
-          B="${{ steps.get_release_version.outputs.release_version }}"
-          pad() { [[ "$1" =~ \. ]] || echo "$1.0.0"; }
-          parse() { awk -F. '{ printf("%d%03d%03d\n", $1, ($2?$2:0), ($3?$3:0)); }' <(echo "$1"); }
-          VA=$(parse "$(pad "$A")")
-          VB=$(parse "$(pad "$B")")
-          echo "File version: $A = $VA, Release version: $B = $VB"
-          if [[ "$VA" -gt "$VB" ]]; then
-            echo "version_is_newer=true" >> $GITHUB_OUTPUT
-          else
-            echo "version_is_newer=false" >> $GITHUB_OUTPUT
-          fi
+          echo "File version: '${{ steps.get_file_version.outputs.file_version }}'"
+          echo "Release version: '${{ steps.get_release_version.outputs.release_version }}'"
+          python3 <<'EOF'
+import sys
+def parse(ver):
+    return tuple(int(x) for x in ver.strip().split('.'))
+file_version = "${{ steps.get_file_version.outputs.file_version }}"
+release_version = "${{ steps.get_release_version.outputs.release_version }}"
+try:
+    fv = parse(file_version)
+    rv = parse(release_version)
+    print(f"Comparing: {fv} > {rv}")
+    if fv > rv:
+        print("version_is_newer=true")
+    else:
+        print("version_is_newer=false")
+except Exception as e:
+    print("Error parsing versions:", e)
+    print("version_is_newer=false")
+EOF | tee result.txt
+          grep "version_is_newer=" result.txt | tee /dev/stderr | sed 's/^/::set-output name=version_is_newer::/' | while read line; do
+            VAL=$(echo "$line" | sed 's/version_is_newer=//')
+            echo "version_is_newer=$VAL" >> $GITHUB_OUTPUT
+          done
 
       - name: Show version compare result
         run: |
