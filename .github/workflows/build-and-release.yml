@@ -5,6 +5,7 @@ on:
     paths:
       - 'PixelScript.py'
       - '.github/workflows/build-and-release.yml'
+  push:
     tags:
       - '*'
   workflow_dispatch:
@@ -19,6 +20,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Get CURRENT_VERSION from PixelScript.py
         id: get_file_version
@@ -47,7 +51,7 @@ jobs:
         run: |
           echo "File version: '${{ steps.get_file_version.outputs.file_version }}'"
           echo "Release version: '${{ steps.get_release_version.outputs.release_version }}'"
-          python3 <<'EOF'
+          python3 <<'EOF' > result.txt
 import sys
 def parse(ver):
     return tuple(int(x) for x in ver.strip().split('.'))
@@ -64,11 +68,9 @@ try:
 except Exception as e:
     print("Error parsing versions:", e)
     print("version_is_newer=false")
-EOF | tee result.txt
-          grep "version_is_newer=" result.txt | tee /dev/stderr | sed 's/^/::set-output name=version_is_newer::/' | while read line; do
-            VAL=$(echo "$line" | sed 's/version_is_newer=//')
-            echo "version_is_newer=$VAL" >> $GITHUB_OUTPUT
-          done
+EOF
+          VERSION_IS_NEWER=$(grep "version_is_newer=" result.txt | sed 's/version_is_newer=//')
+          echo "version_is_newer=$VERSION_IS_NEWER" >> $GITHUB_OUTPUT
 
       - name: Show version compare result
         run: |
@@ -97,20 +99,17 @@ EOF | tee result.txt
       - name: Install dependencies
         run: pip install pyinstaller requests
 
-      # --- Test Step ---
       - name: Test PixelScript.py Launch
         run: |
           python PixelScript.py &
           sleep 10
           pkill -f PixelScript.py || true
 
-      # --- Build Portable (No-Installer) ---
       - name: Build Portable Executable/App
         run: |
           pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-No-Installer"
 
-      # --- Build Installer ---
-      - name: Build Installer
+      - name: Build Installer (Windows)
         if: runner.os == 'Windows'
         run: |
           pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
@@ -123,17 +122,13 @@ EOF | tee result.txt
         if: runner.os == 'macOS'
         run: |
           pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
-          hdiutil create -volname "PixelScriptPlus" -srcfolder dist/ -ov -format UDZO dist/PixelScript+-Installer.dmg
+          # TODO: Add actual macOS installer packaging logic here
 
       - name: Build Installer (Linux)
         if: runner.os == 'Linux'
         run: |
           pyinstaller PixelScript.py --onefile --windowed --name "PixelScript+-Installer"
-          # Example for AppImage or .deb packaging could go here
-
-      - name: Rename installer output (macOS)
-        if: runner.os == 'macOS'
-        run: mv dist/PixelScript+-Installer.dmg dist/PixelScript+-Installer
+          # TODO: Add actual Linux installer packaging logic here
 
       - name: List artifacts
         run: ls dist/
@@ -142,13 +137,11 @@ EOF | tee result.txt
         uses: actions/upload-artifact@v4
         with:
           name: release-assets-${{ matrix.os }}
-          path: |
-            dist/PixelScript+-No-Installer*
-            dist/PixelScript+-Installer*
+          path: dist/*
 
   create-draft-release:
     needs: build-test-package
-    if: always()
+    if: needs.build-test-package.result == 'success'
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ needs.check-version.outputs.file_version }}
@@ -159,18 +152,13 @@ EOF | tee result.txt
           path: artifacts
 
       - name: Create Draft Release and Upload Assets
-        if: needs.build-test-package.result == 'success'
         uses: softprops/action-gh-release@v1
         with:
           draft: true
           tag_name: ${{ env.RELEASE_TAG }}
           name: "PixelScript-Plus ${{ env.RELEASE_TAG }}"
-          files: 'artifacts/**/*'
-
+          files: artifacts/**/*
+      
       - name: Display Release Summary
-        if: needs.build-test-package.result == 'success'
         run: |
           echo "Draft release created for PixelScript-Plus version ${{ env.RELEASE_TAG }}"
-      - name: Output when skipped
-        if: needs.build-test-package.result != 'success'
-        run: echo "No new build was created since version is not newer than release."
